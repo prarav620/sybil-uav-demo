@@ -1,5 +1,7 @@
 # Cooperative multi-UAV misbehaviour detection on VeReMi Extension
 
+**Live demo:** https://sybil-uav-demo.onrender.com (free tier; first load may take ~30-60 s) | **Code:** https://github.com/prarav620/sybil-uav-demo
+
 Single-observer-style baseline, a cooperative multi-UAV AoA fusion layer, a
 spatiotemporal graph classifier, and an evaluation/ablation framework, built on the
 public VeReMi Extension dataset. Full write-up: [docs/REPORT.md](docs/REPORT.md).
