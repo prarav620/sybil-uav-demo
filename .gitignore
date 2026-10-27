@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+data/raw/
+data/processed/
+.ipynb_checkpoints/
+results/figures/*.png
+# Large machine learning models
+results/baseline_rf.joblib
+
+# Python virtual environments
+venv/
+.venv/
+
+# Raw datasets
+raw_dataset/

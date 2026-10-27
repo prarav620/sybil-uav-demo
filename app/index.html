@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Misbehaviour Detector Dashboard</title>
+<style>
+  :root { color-scheme: dark;
+    --bg:#0a0e18; --card:rgba(255,255,255,.045); --card2:rgba(255,255,255,.07); --line:rgba(255,255,255,.09);
+    --ink:#e8ebf4; --mute:#8f98b0; --accent:#6ea0ff; --accent2:#a78bfa; --ok:#34d399; --bad:#f87171; --warn:#fbbf24;
+    --sim:#fb7185; --c1:#6ea0ff; --c2:#fbbf24; --grid:rgba(255,255,255,.10); --soft:rgba(110,160,255,.10); }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; color:var(--ink); font:16px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+         background:var(--bg); background-image:radial-gradient(900px 420px at 12% -8%,rgba(110,160,255,.18),transparent 60%),
+         radial-gradient(800px 400px at 95% 0%,rgba(167,139,250,.16),transparent 55%); background-attachment:fixed; min-height:100vh; }
+  .wrap { max-width:1060px; margin:0 auto; padding:0 18px; }
+  /* header */
+  header.bar { position:sticky; top:0; z-index:20; backdrop-filter:blur(14px); background:rgba(10,14,24,.72); border-bottom:1px solid var(--line); }
+  .barin { display:flex; align-items:center; gap:18px; padding:10px 0; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.2px; white-space:nowrap; }
+  .logo { width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:grid; place-items:center; box-shadow:0 0 18px rgba(110,160,255,.45); }
+  nav { display:flex; gap:4px; overflow-x:auto; flex:1; scrollbar-width:none; }
+  nav button { background:none; border:0; color:var(--mute); padding:8px 14px; font:inherit; font-size:.93rem; cursor:pointer; border-radius:999px; white-space:nowrap; transition:.2s; }
+  nav button:hover { color:var(--ink); background:var(--card); }
+  nav button.on { color:#fff; background:linear-gradient(135deg,rgba(110,160,255,.35),rgba(167,139,250,.35)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+  /* hero */
+  .hero { padding:34px 0 8px; }
+  .hero h1 { font-size:clamp(1.7rem,4.4vw,2.7rem); line-height:1.15; margin:0 0 10px; letter-spacing:-.5px; }
+  .grad { background:linear-gradient(90deg,#8fb4ff,#c4a9ff 55%,#ff9fb4); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .hero p { color:var(--mute); max-width:680px; margin:0 0 16px; font-size:1.05rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { font-size:.8rem; padding:5px 12px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--mute); }
+  main { padding:18px 0 64px; }
+  section { display:none; } section.on { display:block; animation:rise .4s ease both; }
+  @keyframes rise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  h2 { font-size:1.15rem; margin:0 0 8px; } h3 { font-size:.98rem; margin:18px 0 6px; color:#cfd6ea; }
+  p { margin:0 0 10px; } .mute { color:var(--mute); } .small { font-size:.85rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; transition:border-color .2s, transform .2s; }
+  .card:hover { border-color:rgba(110,160,255,.3); }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
+  .stat { position:relative; overflow:hidden; background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .stat::after { content:""; position:absolute; inset:auto -20px -30px auto; width:90px; height:90px; border-radius:50%; background:radial-gradient(circle,rgba(110,160,255,.22),transparent 70%); }
+  .stat b { display:block; font-size:1.9rem; line-height:1.15; font-variant-numeric:tabular-nums; }
+  .stat span { color:var(--mute); font-size:.82rem; }
+  .badge { display:inline-block; font-size:.68rem; font-weight:800; letter-spacing:.4px; padding:2px 9px; border-radius:20px; vertical-align:middle; }
+  .meas { background:rgba(52,211,153,.14); color:var(--ok); border:1px solid rgba(52,211,153,.35); }
+  .simu { background:rgba(251,113,133,.14); color:var(--sim); border:1px solid rgba(251,113,133,.35); }
+  .steps { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); counter-reset:s; }
+  .step { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px 14px 56px; position:relative; transition:.2s; }
+  .step:hover { transform:translateY(-3px); border-color:rgba(167,139,250,.5); }
+  .step::before { counter-increment:s; content:counter(s); position:absolute; left:14px; top:14px; width:30px; height:30px; border-radius:10px;
+                  background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; text-align:center; font-weight:800; line-height:30px; }
+  .note { border:1px solid rgba(251,191,36,.35); background:rgba(251,191,36,.08); padding:12px 16px; border-radius:12px; font-size:.92rem; }
+  select, textarea { width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,.25); color:var(--ink); font:inherit; }
+  textarea { min-height:84px; font-family:ui-monospace,Consolas,monospace; font-size:.8rem; }
+  button.act { font:inherit; font-weight:600; color:#fff; background:linear-gradient(135deg,var(--accent),var(--accent2)); border:0; border-radius:10px; padding:9px 18px; cursor:pointer; transition:.2s; box-shadow:0 4px 18px rgba(110,160,255,.28); }
+  button.act:hover { transform:translateY(-1px); filter:brightness(1.1); }
+  button.ghost { background:transparent; color:var(--accent); box-shadow:inset 0 0 0 1px rgba(110,160,255,.5); }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .two { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  .verdict { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  #verdict { font-size:1.55rem; font-weight:800; letter-spacing:-.3px; } .attacker { color:var(--bad); } .genuine { color:var(--ok); }
+  .gauge { width:170px; flex:none; } .gauge path { transition:stroke-dasharray .9s cubic-bezier(.2,.8,.2,1), stroke .4s; }
+  .warn { background:rgba(251,191,36,.10); border:1px solid rgba(251,191,36,.4); border-radius:10px; padding:8px 12px; margin:8px 0; font-size:.85rem; }
+  canvas { width:100%; height:auto; border:1px solid var(--line); border-radius:12px; background:rgba(0,0,0,.28); display:block; }
+  svg { width:100%; height:auto; display:block; } svg text { fill:var(--ink); font-family:inherit; }
+  svg rect.bar { transform-box:fill-box; transform-origin:50% 100%; animation:grow .8s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes grow { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+  .imp { display:grid; grid-template-columns:minmax(150px,230px) 1fr 52px; gap:10px; align-items:center; font-size:.85rem; margin:5px 0; }
+  .imp i { display:block; height:9px; border-radius:6px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transform-origin:left; animation:slide .9s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes slide { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; } th,td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:right; }
+  th { color:var(--mute); font-weight:600; font-size:.78rem; text-transform:uppercase; letter-spacing:.4px; }
+  th:first-child, td:first-child { text-align:left; } tr.sim td { background:rgba(251,113,133,.06); }
+  ul.lim { padding-left:20px; margin:0; } ul.lim li { margin-bottom:10px; }
+  #err { color:var(--bad); margin:8px 0; }
+  /* simulator */
+  .ctl { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); align-items:end; }
+  .ctl label { font-size:.82rem; color:var(--mute); display:block; margin-bottom:4px; } .ctl label b { color:var(--ink); }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .tog { display:flex; align-items:center; gap:8px; font-size:.9rem; cursor:pointer; user-select:none; }
+  .tog input { width:18px; height:18px; accent-color:var(--bad); }
+  #simCanvas { cursor:grab; touch-action:none; } #simCanvas.drag { cursor:grabbing; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; font-size:.8rem; color:var(--mute); margin-top:8px; }
+  .legend i { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
+  .pill { display:inline-block; padding:3px 12px; border-radius:999px; font-weight:800; font-size:.85rem; }
+  .pill.bad { background:rgba(248,113,113,.15); color:var(--bad); border:1px solid rgba(248,113,113,.4); }
+  .pill.ok { background:rgba(52,211,153,.14); color:var(--ok); border:1px solid rgba(52,211,153,.35); }
+  [hidden] { display:none !important; }
+  footer { color:var(--mute); font-size:.8rem; text-align:center; padding:0 0 30px; }
+</style>
+</head>
+<body>
+<header class="bar"><div class="wrap barin">
+  <div class="brand"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.2" fill="#fff"/><path d="M7 7a7 7 0 0 0 0 10M17 7a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16M20 4a11 11 0 0 1 0 16"/></svg></div><span>VANET Guard</span></div>
+  <nav id="nav">
+    <button data-tab="overview" class="on">Overview</button>
+    <button data-tab="detector">Live detector</button>
+    <button data-tab="simulator">Drone simulator</button>
+    <button data-tab="results">Results</button>
+    <button data-tab="pipeline">Pipeline</button>
+    <button data-tab="limits">Limits</button>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="hero" id="hero">
+    <h1>Catching <span class="grad">lying vehicles</span><br>with machine learning and drones</h1>
+    <p>Cars broadcast where they are and how fast they go, but nothing stops them from lying. This project detects misbehaving vehicles from their own history, and tests whether drones measuring signal direction can expose false positions.</p>
+    <div class="chips"><span class="chip">VeReMi Extension dataset</span><span class="chip">Random Forest</span><span class="chip">Angle-of-arrival fusion</span><span class="chip">node2vec graph</span><span class="chip">XGBoost</span></div>
+  </div>
+</div>
+
+<main class="wrap">
+<!-- ============ OVERVIEW ============ -->
+<section id="overview" class="on">
+  <div class="grid" id="stats" style="margin-bottom:16px"></div>
+  <div class="card">
+    <h2>The problem</h2>
+    <p>Cars in a vehicular network broadcast a safety message about once a second: <i>"I am car 42, here is my position, my speed and my heading."</i> Other cars trust it. But a car can lie, and a <b>Sybil attack</b> is when one car pretends to be many. Receivers only see the claim, so a lie is hard to prove.</p>
+    <p>The idea: <b>drones above the road</b> measure the direction a radio signal really came from. Two or more drones can cross their directions to find the true position, and a big gap to the claimed position exposes a lie. Try it yourself in the <a href="#" data-go="simulator" style="color:var(--accent)">Drone simulator</a>.</p>
+  </div>
+  <h3>How it works in four steps</h3>
+  <div class="steps">
+    <div class="step"><b>Read the messages</b><br><span class="mute small">3.19 million labelled records from the VeReMi Extension dataset.</span></div>
+    <div class="step"><b>Check each car's own story</b><br><span class="mute small">Does the claimed speed match how far it actually moved? Is its timing and heading plausible?</span></div>
+    <div class="step"><b>Add drone evidence (simulated)</b><br><span class="mute small">15 virtual drones measure signal direction; fusion estimates the true position.</span></div>
+    <div class="step"><b>Classify</b><br><span class="mute small">A graph and a gradient-boosted classifier decide attacker or genuine.</span></div>
+  </div>
+  <div class="note" style="margin-top:16px"><b>Read this before quoting numbers.</b> The dataset only contains the positions vehicles <i>claim</i>, not where they truly were. Everything that uses drone fusion rests on a documented simulation and is tagged <span class="badge simu">SIMULATED</span>. Numbers tagged <span class="badge meas">MEASURED</span> come from real dataset records only.</div>
+</section>
+
+<!-- ============ DETECTOR ============ -->
+<section id="detector">
+  <div class="two">
+    <div class="card">
+      <label for="sample"><b>Pick a held-out vehicle</b> <span class="mute small">(never seen in training)</span></label>
+      <select id="sample"></select>
+      <div class="row"><button class="act" id="runSample">Analyze</button><span class="small mute" id="truth"></span></div>
+      <h3>...or paste your own trace</h3>
+      <textarea id="csv" spellcheck="false" placeholder="timestamp,x,y,speed,heading,acl,pos_noise,spd_noise&#10;1.0,100,200,12.5,0.1,0,5.8,0.1"></textarea>
+      <div class="row"><button class="act ghost" id="runCsv">Analyze CSV</button></div>
+      <p class="small mute" style="margin-top:8px">One vehicle, heading in radians, at least 10 messages. pos_noise and spd_noise matter: genuine traffic reports about 5-6 m position noise.</p>
+      <div id="err"></div>
+    </div>
+    <div class="card">
+      <div class="verdict">
+        <svg class="gauge" viewBox="0 0 170 105" role="img" aria-label="Attacker probability gauge">
+          <path d="M15 90 A70 70 0 0 1 155 90" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="13" stroke-linecap="round"/>
+          <path id="gArc" d="M15 90 A70 70 0 0 1 155 90" fill="none" stroke="var(--mute)" stroke-width="13" stroke-linecap="round" stroke-dasharray="0 220"/>
+          <text id="gTxt" x="85" y="82" text-anchor="middle" font-size="26" font-weight="800">--</text>
+          <text x="85" y="101" text-anchor="middle" font-size="10" style="fill:var(--mute)">attacker probability</text>
+        </svg>
+        <div><div id="verdict" class="mute">Choose a vehicle and press Analyze</div><div class="small mute" id="vsub"></div></div>
+      </div>
+      <div id="warn" class="warn" hidden></div>
+      <div class="grid" id="vstats" style="margin-top:12px" hidden>
+        <div class="stat"><b id="ff"></b><span>Messages flagged</span></div>
+        <div class="stat"><b id="nm"></b><span>Messages scored</span></div>
+      </div>
+    </div>
+  </div>
+  <div id="detail" hidden>
+    <div class="two">
+      <div class="card"><h3 style="margin-top:0">Where the vehicle says it went</h3>
+        <canvas id="plot" width="640" height="260"></canvas>
+        <p class="small mute" style="margin-top:8px" id="plotCap">Colour = per-message attacker probability (green low, red high).</p></div>
+      <div class="card"><h3 style="margin-top:0">Attacker probability over time</h3><div id="tl"></div>
+        <p class="small mute">Each point is one message. The dashed line is the 0.5 decision threshold.</p></div>
+    </div>
+    <div class="two">
+      <div class="card"><h3 style="margin-top:0">Claimed speed vs speed the movement implies</h3><div id="sp"></div>
+        <p class="small mute">A genuine car's two lines agree. A big gap means the car moved differently from what it said.</p></div>
+      <div class="card"><h3 style="margin-top:0">What the model looks at</h3><div id="imp"></div>
+        <p class="small mute">Overall importance of each clue in the Random Forest (40 trees), from training.</p></div>
+    </div>
+  </div>
+  <p class="small mute">This live tool uses the measured baseline detector. It does not use the simulated drone features, which need several drones' bearings and cannot be computed from one vehicle's messages.</p>
+</section>
+
+<!-- ============ SIMULATOR ============ -->
+<section id="simulator">
+  <div class="card">
+    <h2>Interactive drone simulator <span class="badge simu">ILLUSTRATION</span></h2>
+    <p class="mute small" style="margin-bottom:12px">Drag the <b style="color:var(--ok)">car</b> around the map. Each drone in range measures the direction of the signal (with some error); the rays cross where the car really is. Turn on <b>Attacker mode</b> and drag the <b style="color:var(--bad)">claimed position</b> away: the drones still point at the real car, so the gap between claim and fix reveals the lie.</p>
+    <div class="ctl">
+      <div><label>Drones available: <b id="vN">4</b></label><input id="sN" type="range" min="2" max="5" value="4"></div>
+      <div><label>Bearing error (std): <b id="vS">2.0</b>&deg;</label><input id="sS" type="range" min="0" max="8" step="0.5" value="2"></div>
+      <label class="tog" style="margin:0"><input id="sA" type="checkbox"> Attacker mode (lie about position)</label>
+      <div class="row" style="margin:0"><button class="act ghost" id="bLie">Random lie</button><button class="act ghost" id="bNoise">New noise</button><button class="act ghost" id="bReset">Reset</button></div>
+    </div>
+    <div style="margin-top:14px"><canvas id="simCanvas" width="1000" height="620"></canvas></div>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>Drone (250 m range)</span><span><i style="background:var(--ok)"></i>True car position</span>
+      <span><i style="background:var(--bad)"></i>Claimed position (attacker)</span><span><i style="background:var(--warn)"></i>Fused estimate from the drones' bearings</span>
+    </div>
+  </div>
+  <div class="grid" id="simStats"></div>
+  <div class="card" style="margin-top:16px">
+    <div id="simVerdict" style="margin-bottom:8px"></div>
+    <ul class="lim" id="simNotes"></ul>
+  </div>
+</section>
+
+<!-- ============ RESULTS ============ -->
+<section id="results">
+  <div class="card">
+    <h2>Model comparison <span class="small mute">(held-out vehicles)</span></h2>
+    <div id="cmpChart"></div>
+    <p class="small mute">Hatched bars use the simulated drone-fusion features. Without them, the real-data models reach F1 of about 0.97.</p>
+    <div style="overflow-x:auto"><table id="cmpTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>Ablation: which fusion feature matters? <span class="badge simu">SIMULATED</span></h2>
+    <div id="ablChart"></div>
+    <p class="small mute">Mean F1 over 5 splits, error bars = one standard deviation. Removing the <b>claimed-vs-fused distance</b> erases the gain; removing the <b>angular-consistency residual</b> changes nothing. With both removed the score equals the no-fusion model, which shows the coverage leak found earlier is gone.</p>
+  </div>
+  <div class="card">
+    <h2>F1 per attack class</h2>
+    <div id="pcChart"></div>
+    <p class="small mute">Class 2 is invisible to history-based features (F1 0.00). Fusion recovers it only because the simulation spoofs the position of every attack class.</p>
+  </div>
+  <div class="card">
+    <h2>Spoof detection by single features <span class="badge simu">SIMULATED</span></h2>
+    <div style="overflow-x:auto"><table id="spTable"></table></div>
+    <p class="small mute">ROC-AUC, spoofed vs genuine vehicle-windows. 0.5 = coin flip. The residual score is below 0.5 because all drones measure the same real transmitter, so their bearings agree whatever the car claims.</p>
+  </div>
+</section>
+
+<!-- ============ PIPELINE ============ -->
+<section id="pipeline">
+  <div class="card"><h2>Architecture</h2><div id="arch"></div>
+    <p class="small mute">The shaded block is the one simulated assumption. Everything built from it (the <code>sim_*</code> columns) is simulated; the top-right baseline path uses real data only.</p></div>
+  <div class="card"><h2>What each stage does</h2><div style="overflow-x:auto"><table id="stageTable"></table></div></div>
+</section>
+
+<!-- ============ LIMITS ============ -->
+<section id="limits">
+  <div class="card"><h2>Limits and honest caveats</h2>
+    <ul class="lim">
+      <li><b>Fusion results are simulated.</b> The dataset has no true transmitter positions. Attackers were given a hidden true position (claimed minus a random 30-300 m offset), so the fusion gain is an upper bound, not a measurement on real attackers.</li>
+      <li><b>Every attack class is treated as position spoofing</b> in that simulation, but some real attacks (speed or denial-of-service types) do not lie about position.</li>
+      <li><b>Coverage rule is not physical.</b> Which drones hear a message is decided from the claimed position so that coverage cannot reveal the label; real radio does not work that way.</li>
+      <li><b>Not Sybil-only.</b> The detector separates attack from genuine over 19 attack classes mixed together; class ids are not mapped to names.</li>
+      <li><b>The baseline uses sender history</b> because the table has no receiver data, so it is stronger than a strict single-observer detector.</li>
+      <li><b>20% of senders</b> were used and the main tables use one fixed split; no hyperparameter tuning.</li>
+      <li><b>The drone simulator is an illustration</b>, not a result: it shows the geometry of fusion with idealised bearings and simplified positions.</li>
+      <li><b>The live detector is a research prototype</b>, unreliable on traces shorter than 10 messages or with blank noise columns, and not suitable for real safety decisions.</li>
+    </ul></div>
+</section>
+</main>
+<footer>VANET Guard &middot; research prototype &middot; results tagged SIMULATED rely on an explicit spoofing assumption</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const f3 = v => Number(v).toFixed(3), f4 = v => Number(v).toFixed(4);
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) { let m = r.statusText; try { m = JSON.stringify((await r.json()).detail); } catch {} throw new Error(m); }
+  return r.json();
+}
+
+// ---------------- tabs & counters ----------------
+function countUp(el) {
+  const target = parseFloat(el.dataset.target), dec = parseInt(el.dataset.dec || '0'), suf = el.dataset.suf || '', t0 = performance.now();
+  const step = t => { const k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3); el.textContent = (target * e).toFixed(dec) + suf; if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function showTab(t) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === t));
+  $('hero').hidden = t !== 'overview';
+  if (t === 'overview') document.querySelectorAll('[data-target]').forEach(countUp);
+  if (t === 'simulator') simDraw();
+  window.scrollTo({ top: 0 });
+  try { localStorage.setItem('tab', t); } catch (e) {}
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+document.querySelectorAll('[data-go]').forEach(a => a.onclick = e => { e.preventDefault(); showTab(a.dataset.go); });
+
+// ---------------- svg chart helpers ----------------
+function hatchDef(id) {
+  return `<pattern id="${id}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="rgba(255,255,255,.65)" stroke-width="3"/></pattern>`;
+}
+function groupedBars(rows, series, o) {
+  const W = o.w || 760, H = o.h || 300, L = 44, R = 12, T = 24, B = o.bottom || 56, id = o.id;
+  const iw = W - L - R, ih = H - T - B, y = v => T + ih - (v - o.min) / (o.max - o.min) * ih;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.alt)}"><defs>${hatchDef(id)}</defs>`;
+  for (let i = 0; i <= 4; i++) { const v = o.min + (o.max - o.min) * i / 4;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" style="fill:var(--mute)">${v.toFixed(o.dec ?? 2)}</text>`; }
+  const gw = iw / rows.length, bw = Math.min(34, (gw - 10) / series.length);
+  rows.forEach((r, gi) => {
+    const x0 = L + gi * gw + (gw - bw * series.length) / 2;
+    r.vals.forEach((v, si) => {
+      const x = x0 + si * bw, top = y(v), h = T + ih - top;
+      s += `<rect class="bar" x="${x}" y="${top}" width="${bw - 2}" height="${h}" fill="${series[si].color}" rx="3" style="animation-delay:${gi * 50}ms"/>`;
+      if (r.sims[si]) s += `<rect class="bar" x="${x}" y="${top}" width="${bw - 2}" height="${h}" fill="url(#${id})" rx="3" style="animation-delay:${gi * 50}ms"/>`;
+      if (o.labels) s += `<text x="${x + bw / 2 - 1}" y="${top - 5}" font-size="${o.lsz || 10.5}" text-anchor="middle">${v.toFixed(o.vdec ?? 3)}</text>`;
+    });
+    (Array.isArray(r.label) ? r.label : [r.label]).forEach((ln, k) =>
+      s += `<text x="${L + gi * gw + gw / 2}" y="${T + ih + 16 + k * 14}" font-size="${o.xsz || 12}" text-anchor="middle" style="fill:var(--mute)">${esc(ln)}</text>`);
+  });
+  if (series.length > 1) series.forEach((se, i) => {
+    s += `<rect x="${L + i * 190}" y="2" width="12" height="12" fill="${se.color}" rx="3"/><text x="${L + i * 190 + 18}" y="12" font-size="12">${esc(se.name)}</text>`; });
+  return s + '</svg>';
+}
+function ablationBars(rows) {
+  const W = 760, H = 300, L = 48, R = 12, T = 24, B = 62, min = 0.94, max = 1.0, id = 'abl';
+  const iw = W - L - R, ih = H - T - B, y = v => T + ih - (v - min) / (max - min) * ih;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ablation of fusion features"><defs>${hatchDef(id)}</defs>`;
+  for (let i = 0; i <= 4; i++) { const v = min + (max - min) * i / 4;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" style="fill:var(--mute)">${v.toFixed(3)}</text>`; }
+  const names = ['Full (all fusion)', ['Drop claimed-', 'vs-fused distance'], ['Drop residual', 'score'], ['Drop both', '(coverage left)'], ['No fusion', '(measured)']];
+  const gw = iw / rows.length, bw = Math.min(80, gw - 24);
+  rows.forEach((r, i) => {
+    const x = L + i * gw + (gw - bw) / 2, top = y(r.f1), h = T + ih - top, col = r.simulated ? 'var(--c1)' : 'var(--ok)';
+    s += `<rect class="bar" x="${x}" y="${top}" width="${bw}" height="${h}" fill="${col}" rx="4" style="animation-delay:${i * 90}ms"/>`;
+    if (r.simulated) s += `<rect class="bar" x="${x}" y="${top}" width="${bw}" height="${h}" fill="url(#${id})" rx="4" style="animation-delay:${i * 90}ms"/>`;
+    const cx = x + bw / 2;
+    s += `<line x1="${cx}" x2="${cx}" y1="${y(r.f1 - r.f1_std)}" y2="${y(r.f1 + r.f1_std)}" stroke="var(--ink)" stroke-width="1.5"/>`
+       + `<line x1="${cx - 5}" x2="${cx + 5}" y1="${y(r.f1 + r.f1_std)}" y2="${y(r.f1 + r.f1_std)}" stroke="var(--ink)"/>`
+       + `<text x="${cx}" y="${y(r.f1 + r.f1_std) - 6}" font-size="11" text-anchor="middle">${f4(r.f1)}</text>`;
+    (Array.isArray(names[i]) ? names[i] : [names[i]]).forEach((ln, k) =>
+      s += `<text x="${cx}" y="${T + ih + 16 + k * 14}" font-size="11.5" text-anchor="middle" style="fill:var(--mute)">${esc(ln)}</text>`);
+  });
+  return s + '</svg>';
+}
+function lineChart(xs, series, o) {
+  const W = 520, H = 220, L = 40, R = 10, T = 14, B = 26, iw = W - L - R, ih = H - T - B;
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const x = v => L + (xmax === xmin ? 0 : (v - xmin) / (xmax - xmin)) * iw, y = v => T + ih - (v - o.min) / (o.max - o.min) * ih;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.alt)}">`;
+  for (let i = 0; i <= 4; i++) { const v = o.min + (o.max - o.min) * i / 4;
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L - 5}" y="${y(v) + 4}" font-size="10.5" text-anchor="end" style="fill:var(--mute)">${v.toFixed(o.dec ?? 1)}</text>`; }
+  if (o.threshold !== undefined) s += `<line x1="${L}" x2="${W - R}" y1="${y(o.threshold)}" y2="${y(o.threshold)}" stroke="var(--bad)" stroke-dasharray="5 4"/>`;
+  series.forEach(se => { s += `<polyline fill="none" stroke="${se.color}" stroke-width="2.2" stroke-linejoin="round" points="${xs.map((v, i) => x(v) + ',' + y(Math.min(o.max, Math.max(o.min, se.vals[i])))).join(' ')}"/>`; });
+  series.forEach((se, i) => { s += `<rect x="${L + 8 + i * 150}" y="${T + 2}" width="10" height="10" fill="${se.color}" rx="2"/><text x="${L + 22 + i * 150}" y="${T + 11}" font-size="11">${esc(se.name)}</text>`; });
+  s += `<text x="${L + iw / 2}" y="${H - 4}" font-size="11" text-anchor="middle" style="fill:var(--mute)">time (s)</text>`;
+  return s + '</svg>';
+}
+
+// ---------------- results ----------------
+function shortModel(m) { return m.replace(' (SIMULATED)', ''); }
+function drawResults(R) {
+  const rows = R.comparison.map(r => ({ label: shortModel(r.model).split(' + ').length > 1 ? ['graph +', 'fusion'] : shortModel(r.model),
+    vals: [r.f1, r.roc_auc], sims: [r.simulated, r.simulated] }));
+  $('cmpChart').innerHTML = groupedBars(rows, [{ name: 'F1', color: 'var(--c1)' }, { name: 'ROC-AUC', color: 'var(--c2)' }],
+    { min: 0.94, max: 1.0, id: 'cmp', alt: 'F1 and ROC-AUC of the four models', labels: true, dec: 3 });
+  $('cmpTable').innerHTML = '<tr><th>Model</th><th>F1</th><th>ROC-AUC</th><th>Recall</th><th>Precision</th><th>False-pos. rate</th><th>Evidence</th></tr>'
+    + R.comparison.map(r => `<tr class="${r.simulated ? 'sim' : ''}"><td>${esc(shortModel(r.model))}</td><td>${f3(r.f1)}</td><td>${f4(r.roc_auc)}</td><td>${f3(r.recall)}</td><td>${f3(r.precision)}</td><td>${f4(r.fpr)}</td>`
+    + `<td><span class="badge ${r.simulated ? 'simu' : 'meas'}">${r.simulated ? 'SIMULATED' : 'MEASURED'}</span></td></tr>`).join('');
+  $('ablChart').innerHTML = ablationBars(R.ablation);
+  $('pcChart').innerHTML = groupedBars(R.per_class.map(r => ({ label: String(r.attack_type), vals: [r['features only'], r['fusion (SIMULATED)']], sims: [false, true] })),
+    [{ name: 'features only (measured)', color: 'var(--c1)' }, { name: 'with fusion (SIMULATED)', color: 'var(--sim)' }],
+    { min: 0, max: 1, id: 'pc', alt: 'F1 per attack class', h: 300, bottom: 40, xsz: 11, dec: 1 });
+  const nice = { claim_fused_dist: 'Claimed-vs-fused distance', angular_consistency_score: 'Angular-consistency residual' };
+  $('spTable').innerHTML = '<tr><th>Offset size</th><th>Feature</th><th>ROC-AUC</th></tr>'
+    + R.spoof.map(r => `<tr class="sim"><td>${esc(r.offset_m)} m</td><td>${esc(nice[r.feature] || r.feature)}</td><td>${f3(r.roc_auc)}</td></tr>`).join('');
+  const fo = R.comparison.find(r => r.model === 'features only'), fu = R.comparison.find(r => r.model.startsWith('fusion'));
+  $('stats').innerHTML =
+    `<div class="stat"><b data-target="${(R.dataset.messages / 1e6).toFixed(2)}" data-dec="2" data-suf=" M">0</b><span>messages in the dataset</span></div>`
+  + `<div class="stat"><b data-target="${R.dataset.attack_classes}">0</b><span>attack types (${Math.round(R.dataset.attack_share * 100)}% of messages are attacks)</span></div>`
+  + `<div class="stat"><b data-target="${fo.f1}" data-dec="3">0</b><span>F1, history features only <span class="badge meas">MEASURED</span></span></div>`
+  + `<div class="stat"><b data-target="${fu.f1}" data-dec="3">0</b><span>F1, with drone fusion <span class="badge simu">SIMULATED</span></span></div>`;
+  document.querySelectorAll('#stats [data-target]').forEach(countUp);
+}
+
+// ---------------- pipeline diagram ----------------
+function drawArch() {
+  const W = 760, H = 430, bw = 200, bh = 62, cx = [120, 380, 640], ry = [52, 142, 232, 322];
+  const nodes = [
+    [0, 0, 'VeReMi Extension', '3.19 M BSM records'], [1, 0, 'Data loader', 'clean, label, merge'], [2, 0, 'Baseline detector', 'sender-history forest'],
+    [0, 1, 'UAV observer layer', '15 drones, bearings'], [1, 1, 'Spoofing simulation', 'hidden true position', true],
+    [0, 2, 'AoA fusion engine', 'sequential LMMSE'], [1, 2, 'Feature builder', '10 s window features'], [2, 2, 'Graph builder', 'node2vec embeddings'],
+    [1, 3, 'XGBoost classifier', 'attack vs genuine'], [0, 3, 'Evaluation', 'metrics, ablation']];
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Pipeline architecture"><defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8f98b0"/></marker></defs>`;
+  const ln = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#8f98b0" stroke-width="1.3" marker-end="url(#ar)"/>`;
+  const hw = bw / 2, hh = bh / 2;
+  s += ln(cx[0] + hw, ry[0], cx[1] - hw - 2, ry[0]) + ln(cx[1] + hw, ry[0], cx[2] - hw - 2, ry[0]) + ln(cx[1], ry[0] + hh, cx[1], ry[1] - hh - 2)
+     + ln(cx[1] - hw, ry[1], cx[0] + hw + 2, ry[1]) + ln(cx[0], ry[1] + hh, cx[0], ry[2] - hh - 2)
+     + ln(cx[0] + hw, ry[2], cx[1] - hw - 2, ry[2]) + ln(cx[1] + hw, ry[2], cx[2] - hw - 2, ry[2]) + ln(cx[1], ry[2] + hh, cx[1], ry[3] - hh - 2)
+     + `<polyline points="${cx[2]},${ry[2] + hh} ${cx[2]},${ry[3]} ${cx[1] + hw + 2},${ry[3]}" fill="none" stroke="#8f98b0" stroke-width="1.3" marker-end="url(#ar)"/>`
+     + ln(cx[1] - hw, ry[3], cx[0] + hw + 2, ry[3]);
+  nodes.forEach(([c, r, t, sub, hl]) => {
+    s += `<rect x="${cx[c] - hw}" y="${ry[r] - hh}" width="${bw}" height="${bh}" rx="12" fill="${hl ? 'rgba(110,160,255,.16)' : 'rgba(255,255,255,.04)'}" stroke="${hl ? '#6ea0ff' : 'rgba(255,255,255,.22)'}" stroke-width="${hl ? 2.2 : 1.2}"/>`
+       + `<text x="${cx[c]}" y="${ry[r] - 4}" text-anchor="middle" font-size="14" font-weight="700">${esc(t)}</text>`
+       + `<text x="${cx[c]}" y="${ry[r] + 15}" text-anchor="middle" font-size="12" style="fill:var(--mute)">${esc(sub)}</text>`; });
+  s += `<text x="640" y="142" text-anchor="middle" font-size="12" style="fill:var(--mute)">Shaded block =</text><text x="640" y="158" text-anchor="middle" font-size="12" style="fill:var(--mute)">simulated assumption</text>`;
+  $('arch').innerHTML = s + '</svg>';
+  const st = [['Data loader', 'Reads the table, builds labels and writes one merged file.', 'real'],
+    ['Baseline detector', 'Scores each message from the sender\'s own history: claimed vs implied speed, heading change, message timing, trust.', 'real'],
+    ['UAV observer layer', 'Places 15 drones over traffic and computes the direction each hears a signal from (within 250 m).', 'sim'],
+    ['Spoofing simulation', 'Gives attackers a hidden true position (claim minus a 30-300 m offset) so drones can measure the truth.', 'sim'],
+    ['AoA fusion engine', 'Crosses 2+ drone bearings into one estimated position; outputs claimed-vs-fused distance and a residual.', 'sim'],
+    ['Feature builder', 'One row per vehicle per 10 s window with history, behaviour and fusion features.', 'sim'],
+    ['Graph builder', 'Links a car\'s consecutive windows and its 5 nearest neighbours; node2vec turns the graph into numbers.', 'real'],
+    ['XGBoost classifier', 'Decides attacker or genuine; trained and tested on different vehicles.', 'real'],
+    ['Evaluation', 'F1, ROC-AUC, per-class scores, curves and the ablation study.', 'real']];
+  $('stageTable').innerHTML = '<tr><th>Stage</th><th style="text-align:left">What it does</th><th>Evidence</th></tr>'
+    + st.map(r => `<tr><td>${r[0]}</td><td style="text-align:left">${esc(r[1])}</td><td><span class="badge ${r[2] === 'sim' ? 'simu' : 'meas'}">${r[2] === 'sim' ? 'SIM-DEPENDENT' : 'REAL DATA'}</span></td></tr>`).join('');
+}
+
+// ---------------- detector ----------------
+let samples = [];
+async function initDetector() {
+  samples = await api('/api/samples');
+  $('sample').innerHTML = samples.map(s => `<option value="${s.index}">${esc(s.id)} (${s.n_messages} messages)</option>`).join('');
+  const sel = () => { const s = samples[$('sample').value];
+    $('truth').textContent = 'Dataset label: ' + s.true_label + (s.attack_class ? ' (attack class ' + s.attack_class + ')' : ''); };
+  $('sample').onchange = sel; sel();
+  const m = await api('/api/model'), mx = Math.max(...m.features.map(f => f.importance));
+  $('imp').innerHTML = m.features.slice(0, 8).map(f => `<div class="imp"><span>${esc(f.label)}</span><i style="width:${(f.importance / mx * 100).toFixed(0)}%"></i><span>${(f.importance * 100).toFixed(1)}%</span></div>`).join('');
+}
+function parseCsv(text) {
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  if (lines.length < 3) throw new Error('Need a header row plus at least 2 messages.');
+  const head = lines[0].split(',').map(h => h.trim());
+  for (const need of ['timestamp', 'x', 'y', 'speed', 'heading']) if (!head.includes(need)) throw new Error('Missing column: ' + need);
+  return lines.slice(1).map(l => { const v = l.split(','), o = {};
+    head.forEach((h, i) => { const n = parseFloat(v[i]); if (!Number.isNaN(n)) o[h] = n; });
+    for (const need of ['timestamp', 'x', 'y', 'speed', 'heading']) if (!(need in o)) throw new Error('Non-numeric value in column ' + need);
+    return o; });
+}
+async function analyze(messages) {
+  $('err').textContent = '';
+  try { show(await api('/api/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages }) })); }
+  catch (e) { $('err').textContent = 'Error: ' + e.message; }
+}
+function show(r) {
+  const v = $('verdict'); v.className = r.verdict;
+  v.textContent = r.verdict === 'attacker' ? 'Looks like an ATTACKER' : 'Looks GENUINE';
+  $('vsub').textContent = r.verdict === 'attacker' ? 'Its messages do not match how it actually moved.' : 'Its claims agree with how it actually moved.';
+  const col = r.verdict === 'attacker' ? 'var(--bad)' : 'var(--ok)', arc = $('gArc');
+  arc.setAttribute('stroke', col); arc.setAttribute('stroke-dasharray', `${(r.mean_probability * 219.9).toFixed(1)} 220`);
+  $('gTxt').textContent = (r.mean_probability * 100).toFixed(0) + '%';
+  $('vstats').hidden = false; $('detail').hidden = false;
+  $('ff').textContent = (r.flagged_fraction * 100).toFixed(0) + '%'; $('nm').textContent = r.messages.length;
+  const w = $('warn'); w.hidden = !r.warnings.length; w.innerHTML = r.warnings.map(t => '&#9888; ' + esc(t)).join('<br>');
+  const ms = r.messages, xs = ms.map(m => m.timestamp);
+  $('tl').innerHTML = lineChart(xs, [{ name: 'attacker probability', color: '#f87171', vals: ms.map(m => m.probability) }], { min: 0, max: 1, threshold: 0.5, alt: 'Attacker probability per message' });
+  const top = Math.max(5, ...ms.map(m => Math.max(m.claimed_speed, m.implied_speed)));
+  $('sp').innerHTML = lineChart(xs, [{ name: 'claimed speed', color: '#6ea0ff', vals: ms.map(m => m.claimed_speed) }, { name: 'implied by movement', color: '#fbbf24', vals: ms.map(m => m.implied_speed) }],
+    { min: 0, max: Math.ceil(Math.min(top, 60) / 10) * 10, alt: 'Claimed speed versus speed implied by movement (m/s)' });
+  draw(ms);
+}
+function draw(msgs) {
+  const c = $('plot'), g = c.getContext('2d'), W = c.width, H = c.height, pad = 18;
+  g.clearRect(0, 0, W, H);
+  const xs = msgs.map(m => m.x), ys = msgs.map(m => m.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const meanSpd = msgs.reduce((a, m) => a + m.claimed_speed, 0) / msgs.length;
+  $('plotCap').textContent = (x1 - x0 < 5 && y1 - y0 < 5 && meanSpd > 1)
+    ? 'The path is a single dot: this vehicle claims a fixed position while also claiming to move, which is itself suspicious.'
+    : 'Colour = per-message attacker probability (green low, red high).';
+  const s = Math.min((W - 2 * pad) / Math.max(x1 - x0, 1), (H - 2 * pad) / Math.max(y1 - y0, 1));
+  const px = x => pad + (x - x0) * s, py = y => H - pad - (y - y0) * s;
+  g.strokeStyle = 'rgba(160,170,190,.35)'; g.lineWidth = 1.5; g.beginPath();
+  msgs.forEach((m, i) => i ? g.lineTo(px(m.x), py(m.y)) : g.moveTo(px(m.x), py(m.y))); g.stroke();
+  msgs.forEach(m => { const t = m.probability; g.fillStyle = `rgb(${Math.round(52 + 196 * t)},${Math.round(211 - 98 * t)},${Math.round(153 - 40 * t)})`;
+    g.beginPath(); g.arc(px(m.x), py(m.y), 4.5, 0, 6.2832); g.fill(); });
+}
+$('runSample').onclick = async () => { try { await analyze((await api('/api/samples/' + $('sample').value)).messages); } catch (e) { $('err').textContent = 'Error: ' + e.message; } };
+$('runCsv').onclick = () => { try { analyze(parseCsv($('csv').value)); } catch (e) { $('err').textContent = 'Error: ' + e.message; } };
+
+// ---------------- drone simulator ----------------
+const SIM = { W: 1000, H: 620, R: 250, PRIOR: 200, FLAG: 30,
+  drones: [[300, 190], [640, 200], [470, 430], [150, 330], [790, 360]],
+  truth: [470, 250], off: [110, -70], n: 4, sigma: 2, attacker: false, z: [], seed: 7 };
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function newNoise() { const r = rng(SIM.seed++); SIM.z = Array.from({ length: 5 }, () => Math.sqrt(-2 * Math.log(r() + 1e-9)) * Math.cos(2 * Math.PI * r())); }
+const wrap = a => (a + Math.PI) % (2 * Math.PI) - Math.PI;
+const rad = d => d * Math.PI / 180;
+function simFuse(obs, sig) {
+  if (obs.length < 2) return null;
+  const [a, b] = obs, u1 = [Math.cos(a.th), Math.sin(a.th)], u2 = [Math.cos(b.th), Math.sin(b.th)], cr = u1[0] * u2[1] - u1[1] * u2[0];
+  let p0;
+  if (Math.abs(cr) < 1e-3) p0 = [a.ox + SIM.PRIOR * u1[0], a.oy + SIM.PRIOR * u1[1]];
+  else { const dx = b.ox - a.ox, dy = b.oy - a.oy, t1 = (dx * u2[1] - dy * u2[0]) / cr; p0 = [a.ox + t1 * u1[0], a.oy + t1 * u1[1]]; }
+  let p = p0.slice();
+  for (let it = 0; it < 2; it++) {
+    let P = [[SIM.PRIOR ** 2, 0], [0, SIM.PRIOR ** 2]], est = (it ? p : p0).slice(), lin = est.slice();
+    for (const o of obs) {
+      const dx = lin[0] - o.ox, dy = lin[1] - o.oy, r2 = Math.max(dx * dx + dy * dy, 1), H = [-dy / r2, dx / r2];
+      const PH = [P[0][0] * H[0] + P[0][1] * H[1], P[1][0] * H[0] + P[1][1] * H[1]], S = H[0] * PH[0] + H[1] * PH[1] + sig * sig, K = [PH[0] / S, PH[1] / S];
+      const inn = wrap(o.th - Math.atan2(est[1] - o.oy, est[0] - o.ox));
+      est = [est[0] + K[0] * inn, est[1] + K[1] * inn];
+      P = [[P[0][0] - K[0] * PH[0], P[0][1] - K[0] * PH[1]], [P[1][0] - K[1] * PH[0], P[1][1] - K[1] * PH[1]]]; lin = est.slice();
+    }
+    p = est;
+  }
+  return { p, res: obs.map(o => wrap(o.th - Math.atan2(p[1] - o.oy, p[0] - o.ox))) };
+}
+function simState() {
+  const t = SIM.truth, sig = Math.max(rad(SIM.sigma), rad(0.3));
+  const heard = [];
+  for (let i = 0; i < SIM.n; i++) {
+    const [ox, oy] = SIM.drones[i], d = Math.hypot(t[0] - ox, t[1] - oy);
+    if (d < SIM.R) heard.push({ i, ox, oy, d, th: Math.atan2(t[1] - oy, t[0] - ox) + SIM.z[i] * rad(SIM.sigma) });
+  }
+  const fz = simFuse(heard, sig), claimed = SIM.attacker ? [t[0] + SIM.off[0], t[1] + SIM.off[1]] : t.slice();
+  return { heard, fz, claimed, sig };
+}
+const ctx = () => $('simCanvas').getContext('2d');
+function simDraw() {
+  const c = $('simCanvas'), g = c.getContext('2d'), S = c.width / SIM.W, st = simState(), X = v => v * S;
+  g.clearRect(0, 0, c.width, c.height);
+  g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 1;
+  for (let x = 0; x <= SIM.W; x += 50) { g.beginPath(); g.moveTo(X(x), 0); g.lineTo(X(x), c.height); g.stroke(); }
+  for (let y = 0; y <= SIM.H; y += 50) { g.beginPath(); g.moveTo(0, X(y)); g.lineTo(c.width, X(y)); g.stroke(); }
+  g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(0, X(235), c.width, X(40)); g.fillRect(X(450), 0, X(40), c.height);
+  g.setLineDash([14, 12]); g.strokeStyle = 'rgba(255,255,255,.2)'; g.beginPath(); g.moveTo(0, X(255)); g.lineTo(c.width, X(255)); g.moveTo(X(470), 0); g.lineTo(X(470), c.height); g.stroke(); g.setLineDash([]);
+  for (let i = 0; i < SIM.n; i++) {
+    const [ox, oy] = SIM.drones[i], on = st.heard.some(h => h.i === i);
+    g.beginPath(); g.arc(X(ox), X(oy), X(SIM.R), 0, 7); g.fillStyle = on ? 'rgba(110,160,255,.07)' : 'rgba(110,160,255,.025)'; g.fill();
+    g.strokeStyle = on ? 'rgba(110,160,255,.45)' : 'rgba(110,160,255,.15)'; g.setLineDash([6, 6]); g.stroke(); g.setLineDash([]);
+  }
+  st.heard.forEach(h => {
+    const L = (h.d + 160) * S; g.beginPath(); g.moveTo(X(h.ox), X(h.oy)); g.lineTo(X(h.ox) + Math.cos(h.th) * L, X(h.oy) + Math.sin(h.th) * L);
+    g.strokeStyle = 'rgba(167,139,250,.85)'; g.lineWidth = 2.2; g.stroke();
+  });
+  for (let i = 0; i < SIM.n; i++) {
+    const [ox, oy] = SIM.drones[i], on = st.heard.some(h => h.i === i), px = X(ox), py = X(oy);
+    g.fillStyle = on ? '#6ea0ff' : '#4a5470'; g.strokeStyle = on ? '#6ea0ff' : '#4a5470'; g.lineWidth = 2;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => { g.beginPath(); g.moveTo(px, py); g.lineTo(px + a * 13, py + b * 13); g.stroke(); g.beginPath(); g.arc(px + a * 13, py + b * 13, 6, 0, 7); g.fill(); });
+    g.beginPath(); g.arc(px, py, 6, 0, 7); g.fillStyle = '#0a0e18'; g.fill(); g.stroke();
+    g.fillStyle = '#cfd6ea'; g.font = `${13 * S * 1.4}px system-ui`; g.fillText('D' + (i + 1), px + 18, py - 14);
+  }
+  if (SIM.attacker) {
+    g.setLineDash([6, 5]); g.strokeStyle = 'rgba(248,113,113,.7)'; g.lineWidth = 2; g.beginPath(); g.moveTo(X(SIM.truth[0]), X(SIM.truth[1])); g.lineTo(X(st.claimed[0]), X(st.claimed[1])); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(X(st.claimed[0]), X(st.claimed[1]), 15, 0, 7); g.fillStyle = 'rgba(248,113,113,.2)'; g.fill(); g.strokeStyle = '#f87171'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#f87171'; g.font = `${13 * S * 1.4}px system-ui`; g.fillText('claimed', X(st.claimed[0]) + 20, X(st.claimed[1]) + 5);
+  }
+  g.beginPath(); g.arc(X(SIM.truth[0]), X(SIM.truth[1]), 12, 0, 7); g.fillStyle = '#34d399'; g.fill(); g.strokeStyle = '#0a0e18'; g.lineWidth = 3; g.stroke();
+  g.fillStyle = '#34d399'; g.font = `${13 * S * 1.4}px system-ui`; g.fillText('car (true)', X(SIM.truth[0]) + 18, X(SIM.truth[1]) + 22);
+  if (st.fz) { const [fx, fy] = st.fz.p; g.strokeStyle = '#fbbf24'; g.lineWidth = 3; g.beginPath(); g.moveTo(X(fx) - 10, X(fy) - 10); g.lineTo(X(fx) + 10, X(fy) + 10); g.moveTo(X(fx) + 10, X(fy) - 10); g.lineTo(X(fx) - 10, X(fy) + 10); g.stroke();
+    g.fillStyle = '#fbbf24'; g.fillText('fused', X(fx) + 14, X(fy) - 12); }
+  simReadout(st);
+}
+function simReadout(st) {
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), k = st.heard.length;
+  let fusedErr = '--', gap = '--', res = '--', verdict;
+  if (st.fz) { fusedErr = dist(st.fz.p, SIM.truth).toFixed(1) + ' m'; const gp = dist(st.fz.p, st.claimed); gap = gp.toFixed(1) + ' m';
+    if (k >= 3) res = (Math.sqrt(st.fz.res.reduce((s, v) => s + v * v, 0) / k) * 180 / Math.PI).toFixed(2) + '°';
+    else res = 'needs 3+';
+    verdict = gp > SIM.FLAG ? `<span class="pill bad">Claim does not match the signals: LIE FLAGGED</span>` : `<span class="pill ok">Claim agrees with the signals: looks honest</span>`;
+  } else verdict = `<span class="pill bad" style="background:rgba(251,191,36,.12);color:var(--warn);border-color:rgba(251,191,36,.4)">Fewer than 2 drones hear the car: cannot fuse. Drag it closer to the drones.</span>`;
+  $('simStats').innerHTML = `<div class="stat"><b>${k}</b><span>drones hearing the car (within ${SIM.R} m)</span></div>`
+    + `<div class="stat"><b>${fusedErr}</b><span>fused position vs true position</span></div>`
+    + `<div class="stat"><b>${gap}</b><span>claimed vs fused position (the useful feature)</span></div>`
+    + `<div class="stat"><b>${res}</b><span>residual of bearings (the feature that failed)</span></div>`;
+  $('simVerdict').innerHTML = verdict + ` <span class="small mute">Illustrative flag threshold: ${SIM.FLAG} m</span>`;
+  $('simNotes').innerHTML = [
+    '<b>Honest car:</b> the claimed position sits on the car, so claimed and fused positions agree and nothing is flagged.',
+    '<b>Attacker mode:</b> the claim is far from the car, but the drones still point at the real car. The fused marker stays on the car and the claimed-vs-fused gap grows. This is the feature that carried the whole gain in the ablation.',
+    '<b>The residual stays tiny</b> even when the car lies, because every drone measures the same real transmitter. That is why the angular-consistency score added nothing in the results.',
+    '<b>Few drones or large bearing error</b> make the fused marker drift. With only 2 drones the residual is always zero (two lines always meet), so it is undefined.'].map(t => `<li>${t}</li>`).join('');
+}
+(function simInit() {
+  newNoise();
+  const c = $('simCanvas'); let drag = null;
+  const pt = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * SIM.W / r.width, (e.clientY - r.top) * SIM.H / r.height]; };
+  c.addEventListener('pointerdown', e => {
+    const p = pt(e), st = simState(), dTruth = Math.hypot(p[0] - SIM.truth[0], p[1] - SIM.truth[1]), dClaim = Math.hypot(p[0] - st.claimed[0], p[1] - st.claimed[1]);
+    if (SIM.attacker && dClaim < 34 && dClaim < dTruth) drag = 'claim'; else if (dTruth < 40) drag = 'truth'; else return;
+    c.setPointerCapture(e.pointerId); c.classList.add('drag'); e.preventDefault();
+  });
+  c.addEventListener('pointermove', e => {
+    if (!drag) return; const p = pt(e), cl = (v, a, b) => Math.min(b, Math.max(a, v));
+    if (drag === 'truth') SIM.truth = [cl(p[0], 20, SIM.W - 20), cl(p[1], 20, SIM.H - 20)];
+    else SIM.off = [cl(p[0], 5, SIM.W - 5) - SIM.truth[0], cl(p[1], 5, SIM.H - 5) - SIM.truth[1]];
+    simDraw();
+  });
+  const end = () => { drag = null; c.classList.remove('drag'); };
+  c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+  $('sN').oninput = e => { SIM.n = +e.target.value; $('vN').textContent = SIM.n; simDraw(); };
+  $('sS').oninput = e => { SIM.sigma = +e.target.value; $('vS').textContent = SIM.sigma.toFixed(1); simDraw(); };
+  $('sA').onchange = e => { SIM.attacker = e.target.checked; simDraw(); };
+  $('bNoise').onclick = () => { newNoise(); simDraw(); };
+  $('bLie').onclick = () => { const r = rng(SIM.seed++), a = r() * 2 * Math.PI, m = 60 + r() * 240; SIM.off = [Math.cos(a) * m, Math.sin(a) * m]; $('sA').checked = SIM.attacker = true; simDraw(); };
+  $('bReset').onclick = () => { SIM.truth = [470, 250]; SIM.off = [110, -70]; SIM.n = 4; SIM.sigma = 2; SIM.attacker = false; $('sN').value = 4; $('sS').value = 2; $('vN').textContent = 4; $('vS').textContent = '2.0'; $('sA').checked = false; newNoise(); simDraw(); };
+})();
+
+// ---------------- boot ----------------
+drawArch();
+api('/api/results').then(drawResults).catch(e => { $('stats').textContent = 'Could not load results: ' + e.message; });
+initDetector().catch(e => { $('err').textContent = 'Could not load samples: ' + e.message; });
+try { const t = localStorage.getItem('tab'); if (t && $(t)) showTab(t); } catch (e) {}
+</script>
+</body>
+</html>

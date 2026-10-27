@@ -1,0 +1,3 @@
+offset_m,feature,n_windows,spoofed_share,mean_genuine,mean_spoofed,roc_auc,simulated
+30-300,angular_consistency_score,110044,0.301,0.1554719791483193,0.06100738480881179,0.3945916208374403,True
+30-300,claim_fused_dist,385702,0.288,137.9222543503796,266.3675636091087,0.9622929441850809,True

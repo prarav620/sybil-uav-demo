@@ -1,0 +1,14 @@
+numpy
+scipy
+pandas
+pyarrow
+scikit-learn
+xgboost
+networkx
+node2vec
+matplotlib
+seaborn
+jupyter
+pytest
+tqdm
+joblib
